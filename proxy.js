@@ -1,0 +1,253 @@
+const fs = require('fs')
+const express = require('express');
+const https = require('https');
+const path = require('path');
+// var hostBucket = [];
+// https.createServer({
+//     cert: fs.readFileSync('./oobeservermain.pem'),
+//     key: fs.readFileSync('./oobeservermain.key')
+// },async (req, res)=>{
+//     console.log("Serving request for " + req.headers.host);
+//     if (req.headers.host === 'accounts.google.com') {
+//         res.writeHead(200, '', {
+//             "Content-Type": "text/html",
+//             "x-manage-chrome-accounts": "incognito=1"
+//         });
+//         res.end('Intercepting google accounts.');
+//         return;
+//     };
+    
+//     if (req.headers.host === 'play.google.com') {
+//         res.writeHead(200, '', {
+//             "Content-Type": "text/html",
+//         });
+//         res.end("This exploit was written by CRZero and Chromium Labs.\nPrimary Developer: MCRideable#3693.\n Combination of k1llswitch and certain chromium vulnerabilities. We will be shortly pwning your browser and placing a shell in the current page. Link to incognito? <a href='//accounts.google.com/SignOutOptions' >link1</a>");
+//         return;
+//     };
+//     let url = req.url;
+//     console.log(req.url);
+//     let resp;
+//     try {
+//     resp = await axios.request({
+//         url: url,
+//         headers: req.headers,
+//         responseType: "arraybuffer"
+//     });
+// }catch {
+//     res.writeHead(404);
+//     res.end("Failed");
+//     return; 
+// }
+    
+//     res.writeHead(resp.status, resp.statusText, resp.headers);
+//     if (resp.data) {
+//         res.end(resp.data);
+//     }
+
+// }).listen(3000);
+//Credits to https://medium.com/@nimit95/a-simple-http-https-proxy-in-node-js-4eb0444f38fc or @nimit95
+const net = require('net');
+const server = net.createServer();
+// miniServerMap[host] = new MiniServer();
+/**
+ * @type {Object<string,MiniServer>}
+ */
+var miniServerMap = {};
+
+// manifest.json is per website
+// Location: configs/<website name>/manifest.json (ex. www.google.com/manifest.json)
+
+
+/**
+ * @type {import('./proxy').ServerConfig}
+ */
+let a;
+
+/**
+ * @type {Object<string, (req: Request, res: Response)=>void>}
+ */
+let serverCallbackMap = {};
+
+
+
+/**
+ * 
+ * @param {import('./proxy').ServerConfig} config 
+ */
+function readServerConfig(address, config) {
+  /**
+   * 
+   * @returns {import('./proxy').FilterFunction}
+   */
+  const defaultServerFilterGetter = function () {
+    if (config.filterPath) { // Filter path takes precedence as it handles all cases
+      return require(filterPath).filter;
+    }
+    else if (config.filters) {
+      
+      return function ({tls}) {
+        if (tls) {
+          return config.filters.includes('https');
+        }
+        else {
+          return config.filters.includes('http');
+        }
+      }
+    }
+  }
+  const defaultServerProxyGetter = function () {
+    if (config.proxyPath) { // Proxypath takes precedence over rev proxy due to js handling nature
+      return require(config.proxyPath).proxy;
+    }else if (config.reverseProxyUrl) {
+      const url = config.reverseProxyUrl;
+      const a = url + req.path;
+      const x = new URL(a);
+      const socketDNS = x.host;
+
+
+      /**
+       * @param {net.Socket} clientsock
+       */
+      return function (config, clientsock) {
+        const as = net.createConnection({
+          host: x.host,
+          port: parseInt(x.port)
+        });
+        clientsock.pipe(as);
+        
+      }
+    }
+    
+  }
+  const configData = {filter: defaultServerFilterGetter, proxy: defaultServerProxyGetter, config};
+  return configData;
+}
+function getAllServerConfigs() {
+  const allConfigDir = path.resolve(__dirname, 'configs');
+  const a = fs.readdirSync(allConfigDir);
+  for (const server of a){
+    console.info("Reading config for: ", server);
+    const serverPath = null;
+    const files = fs.readdirSync((serverPath = path.resolve(allConfigDir, server)));
+    if (!files.includes("manifest.json")) {
+      console.error(`Could not read config for ${server}. Moving on to next server`);
+    }
+    const manifestData = fs.readFileSync(path.resolve(serverPath, 'manifest.json'), {encoding: 'utf8'});
+    
+    /**
+     * @type {import('./proxy').ServerConfig}
+     */
+    const serverConfig = JSON.parse(manifestData);
+    const funcs = readServerConfig(serverConfig);
+    serverCallbackMap[server] = funcs;
+  }
+}
+getAllServerConfigs()
+// FilterInfo: {
+//     host: string,
+//     tls: boolean,
+//}
+server.on('connection', (clientToProxySocket) => {
+    // We need only the data once, the starting packet
+    console.log("client connected");
+    clientToProxySocket.once('data', (data) => {
+      let isTLSConnection = data.toString().indexOf('CONNECT') !== -1;
+    
+      //Considering Port as 80 by default 
+      let serverPort = 80;
+      let serverAddress;
+      var useMiniServer= false;
+      if (isTLSConnection) {
+        // Port changed to 443, parsing the host from CONNECT 
+        serverPort = 443;
+        serverAddress = data.toString()
+                            .split('CONNECT ')[1]
+                            .split(' ')[0].split(':')[0];
+        console.log(serverAddress);
+        if (miniServerMap[serverAddress]) {
+          console.log("USING Miniserver")
+            serverPort = miniServerMap[serverAddress].port;
+            serverAddress= "localhost";
+        }
+
+        else if (serverAddress.includes("googleapis.com")) {
+          console.log("USING Miniserver")
+
+            const a = new MiniServer("");
+
+            miniServerMap[serverAddress] = a;
+            serverAddress = "localhost";
+            serverPort = a.port;
+        }
+      } else {
+         // Parsing HOST from HTTP
+         serverAddress = data.toString()
+                             .split('Host: ')[1].split('\r\n')[0];
+         console.log(serverAddress);
+      }
+      let proxyToServerSocket = net.createConnection({
+        host: serverAddress,
+        port: serverPort
+      }, () => {
+        // console.log('PROXY TO SERVER SET UP');
+        
+        if (isTLSConnection) {
+          //Send Back OK to HTTPS CONNECT Request
+          clientToProxySocket.write('HTTP/1.1 200 OK\r\n\n');
+        } else {
+          proxyToServerSocket.write(data);
+        }
+        // Piping the sockets
+        clientToProxySocket.pipe(proxyToServerSocket);
+        proxyToServerSocket.pipe(clientToProxySocket);
+        
+        proxyToServerSocket.on('error', (err) => {
+          // console.log('PROXY TO SERVER may have disconnected.');
+          // console.log(err);
+        });
+      });
+      proxyToServerSocket.on('error', (e)=>{
+        console.log(e);
+      })
+      clientToProxySocket.on('error', err => {
+        console.log('CLIENT TO PROXY may have disconnected.');
+      });
+    });
+  });
+server.on('error', (err) => {
+  console.log('SERVER ERROR');
+  console.log(err);
+});
+server.on('close', () => {
+  console.log('Client Disconnected');
+});
+server.listen(8125, () => {
+  console.log('Server running at http://localhost:' + 8125);
+});
+//Source code below is for creating a mini server or a server that serves requests within memory.(or not)
+class MiniServer {
+    static pInitial = 3001;
+    internalServer;
+    expressApp;
+    port;
+    constructor(staticDir,port=MiniServer.pInitial++) {
+      console.log("miniserver creating")
+      this.expressApp = express();
+      this.expressApp.use(function (req, res) {
+        
+        res.writeHead(200, "OK");
+        res.end("hi");
+      });
+      this.internalServer = https.createServer({
+        cert: fs.readFileSync('google.pem'),
+        key: fs.readFileSync("google.key"),
+    },(req, res)=>{
+      console.log(`[DEBUG] Serving request ${req.url} for ${req.headers.host}`);
+      
+      this.expressApp(req, res);
+      
+    });
+    this.internalServer.listen(port);
+    this.port = port;
+    }
+  }
