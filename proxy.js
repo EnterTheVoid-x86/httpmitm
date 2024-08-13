@@ -64,7 +64,11 @@ var miniServerMap = {};
 let a;
 
 /**
- * @type {Object<string, (req: Request, res: Response)=>void>}
+ * @type {Object<string, {
+ *  filter: (f: import('./proxy').FilterInfo)=>void,
+ *  proxy: (config: import('./proxy').ServerConfig, clientsock: net.Socket)=>void,
+ *  config: import('./proxy').ServerConfig
+ * }>}
  */
 let serverCallbackMap = {};
 
@@ -97,7 +101,7 @@ function readServerConfig(address, config) {
   }
   const defaultServerProxyGetter = function () {
     if (config.proxyPath) { // Proxypath takes precedence over rev proxy due to js handling nature
-      return require(config.proxyPath).proxy;
+      return require(path.resolve(__dirname,"configs", address, config.proxyPath)).proxy;
     }else if (config.reverseProxyUrl) {
       const url = config.reverseProxyUrl;
       const a = url + req.path;
@@ -119,6 +123,7 @@ function readServerConfig(address, config) {
     }
     
   }
+
   const configData = {filter: defaultServerFilterGetter, proxy: defaultServerProxyGetter, config};
   return configData;
 }
@@ -127,19 +132,20 @@ function getAllServerConfigs() {
   const a = fs.readdirSync(allConfigDir);
   for (const server of a){
     console.info("Reading config for: ", server);
-    const serverPath = null;
+    var serverPath = null;
     const files = fs.readdirSync((serverPath = path.resolve(allConfigDir, server)));
     if (!files.includes("manifest.json")) {
       console.error(`Could not read config for ${server}. Moving on to next server`);
+      continue;
     }
     const manifestData = fs.readFileSync(path.resolve(serverPath, 'manifest.json'), {encoding: 'utf8'});
-    
+    console.log(manifestData)
     /**
      * @type {import('./proxy').ServerConfig}
      */
     const serverConfig = JSON.parse(manifestData);
-    const funcs = readServerConfig(serverConfig);
-    serverCallbackMap[server] = funcs;
+    const funcs = readServerConfig(server,serverConfig);
+    serverCallbackMap[serverConfig.matches ?? server] = funcs;
   }
 }
 getAllServerConfigs()
@@ -152,7 +158,7 @@ server.on('connection', (clientToProxySocket) => {
     console.log("client connected");
     clientToProxySocket.once('data', (data) => {
       let isTLSConnection = data.toString().indexOf('CONNECT') !== -1;
-    
+      var path = null;
       //Considering Port as 80 by default 
       let serverPort = 80;
       let serverAddress;
@@ -163,27 +169,36 @@ server.on('connection', (clientToProxySocket) => {
         serverAddress = data.toString()
                             .split('CONNECT ')[1]
                             .split(' ')[0].split(':')[0];
-        console.log(serverAddress);
-        if (miniServerMap[serverAddress]) {
-          console.log("USING Miniserver")
-            serverPort = miniServerMap[serverAddress].port;
-            serverAddress= "localhost";
-        }
-
-        else if (serverAddress.includes("googleapis.com")) {
-          console.log("USING Miniserver")
-
-            const a = new MiniServer("");
-
-            miniServerMap[serverAddress] = a;
-            serverAddress = "localhost";
-            serverPort = a.port;
-        }
+        // console.log(serverAddress);
+        
       } else {
          // Parsing HOST from HTTP
          serverAddress = data.toString()
                              .split('Host: ')[1].split('\r\n')[0];
-         console.log(serverAddress);
+         const firstLine = data.toString().split('\r\n')[0];
+         path = firstLine.split(' ')[1];
+        //  console.log(serverAddress);
+      }
+      var isFiltered = false;
+      var using = null;
+      Object.keys(serverCallbackMap).forEach((v)=>{
+        // console.log("Proxy is: "+ v);
+        // console.log(new RegExp(v).test(serverAddress));
+        if (new RegExp(v).test(serverAddress)) {
+          // It matches. We should run the handler.
+          using = v;
+          isFiltered = serverCallbackMap[v].filter({
+            tls: isTLSConnection,
+            host: serverAddress,
+            path: path
+          });
+          // console.log(isFiltered);
+        }
+      })
+
+      if (isFiltered) {
+        serverCallbackMap[using].proxy()(serverCallbackMap[using].config, clientToProxySocket);
+        return;
       }
       let proxyToServerSocket = net.createConnection({
         host: serverAddress,
@@ -225,29 +240,3 @@ server.listen(8125, () => {
   console.log('Server running at http://localhost:' + 8125);
 });
 //Source code below is for creating a mini server or a server that serves requests within memory.(or not)
-class MiniServer {
-    static pInitial = 3001;
-    internalServer;
-    expressApp;
-    port;
-    constructor(staticDir,port=MiniServer.pInitial++) {
-      console.log("miniserver creating")
-      this.expressApp = express();
-      this.expressApp.use(function (req, res) {
-        
-        res.writeHead(200, "OK");
-        res.end("hi");
-      });
-      this.internalServer = https.createServer({
-        cert: fs.readFileSync('google.pem'),
-        key: fs.readFileSync("google.key"),
-    },(req, res)=>{
-      console.log(`[DEBUG] Serving request ${req.url} for ${req.headers.host}`);
-      
-      this.expressApp(req, res);
-      
-    });
-    this.internalServer.listen(port);
-    this.port = port;
-    }
-  }

@@ -16,7 +16,7 @@ keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
 subjectAltName = @alt_names
 
 [alt_names]
-DNS.1 = $1
+DNS.1 = $2
 EOF
 
 openssl x509 -req -out "$DIR/$1.pem" -CA "$SCRIPTDIR/myCA.pem" -CAkey "$SCRIPTDIR/myCA.key" -extfile "$DIR/extfile" -in "$DIR/in.csr"
