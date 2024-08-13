@@ -155,7 +155,7 @@ getAllServerConfigs()
 //}
 server.on('connection', (clientToProxySocket) => {
     // We need only the data once, the starting packet
-    console.log("client connected");
+    // console.log("client connected");
     clientToProxySocket.once('data', (data) => {
       let isTLSConnection = data.toString().indexOf('CONNECT') !== -1;
       var path = null;
