@@ -8,6 +8,7 @@ const axios = require('axios').default;
  * @param {import("../../proxy").FilterInfo} f 
  */
 function filter(f) {
+    console.log(f.tls);
     if (f.tls) {
         return true;
     }

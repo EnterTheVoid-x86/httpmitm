@@ -236,7 +236,7 @@ server.on('error', (err) => {
 server.on('close', () => {
   console.log('Client Disconnected');
 });
-server.listen(8125, () => {
-  console.log('Server running at http://localhost:' + 8125);
+server.listen(8126, () => {
+  console.log('Server running at http://localhost:' + 8126);
 });
 //Source code below is for creating a mini server or a server that serves requests within memory.(or not)
