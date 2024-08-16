@@ -179,6 +179,8 @@ server.on('connection', (clientToProxySocket) => {
          path = firstLine.split(' ')[1];
         //  console.log(serverAddress);
       }
+      console.log(serverAddress);
+      console.log(isTLSConnection);
       var isFiltered = false;
       var using = null;
       Object.keys(serverCallbackMap).forEach((v)=>{
@@ -195,7 +197,7 @@ server.on('connection', (clientToProxySocket) => {
           // console.log(isFiltered);
         }
       })
-
+      console.log(isFiltered);
       if (isFiltered) {
         serverCallbackMap[using].proxy()(serverCallbackMap[using].config, clientToProxySocket);
         return;
@@ -205,13 +207,13 @@ server.on('connection', (clientToProxySocket) => {
         port: serverPort
       }, () => {
         // console.log('PROXY TO SERVER SET UP');
-        
         if (isTLSConnection) {
           //Send Back OK to HTTPS CONNECT Request
           clientToProxySocket.write('HTTP/1.1 200 OK\r\n\n');
         } else {
           proxyToServerSocket.write(data);
         }
+        
         // Piping the sockets
         clientToProxySocket.pipe(proxyToServerSocket);
         proxyToServerSocket.pipe(clientToProxySocket);
