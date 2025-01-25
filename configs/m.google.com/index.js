@@ -50,7 +50,7 @@ async function startServerIfNeeded() {
         }
         state.pid = parseInt(buffer.toString('utf-8'));
 
-      
+      await new Promise((resolve)=>setTimeout(resolve, 200));
     // })
     console.log("Started internal server with pid of: " + state.pid);
 }
