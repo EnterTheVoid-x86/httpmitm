@@ -19,7 +19,7 @@ function filter(f) {
     return false;
 }
 async function startServerIfNeeded() {
-    if (state.pid) return;
+    return; // run the python3 srv manually for now
     let realpath = path.resolve('.', 'dmbackend', 'start_server.sh')
     let prc = child_proc.spawn("/bin/bash", [path.resolve('.', 'dmbackend', 'start_server.sh'), realpath], {stdio: "pipe"});
     let wstream = fs.createWriteStream("./int_server.log");
@@ -68,7 +68,7 @@ app.post("/*", async function (req, res) {
             fetch = (await import('node-fetch')).default;
             await startServerIfNeeded();
 
-            const resFromRev = await fetch('http://localhost:3040/' + url.parse(req.url).search, {
+            const resFromRev = await fetch('http://127.0.0.1:3040/' + url.parse(req.url).search, {
                 body: dat,
                 "headers": req.headers,
                 method: "POST"
@@ -121,7 +121,7 @@ function proxy(config, sock) {
     }, path.resolve(__dirname, "public", "google.com.pem"), path.resolve(__dirname, "public", "google.com.key"))
     
     const socks = net.createConnection({
-        host: "localhost",
+        host: "127.0.0.1",
         port: ms.port
     }, function () {
         sock.write('HTTP/1.1 200 OK\r\n\n');
