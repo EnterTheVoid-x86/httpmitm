@@ -2,50 +2,6 @@ const fs = require('fs')
 const express = require('express');
 const https = require('https');
 const path = require('path');
-// var hostBucket = [];
-// https.createServer({
-//     cert: fs.readFileSync('./oobeservermain.pem'),
-//     key: fs.readFileSync('./oobeservermain.key')
-// },async (req, res)=>{
-//     console.log("Serving request for " + req.headers.host);
-//     if (req.headers.host === 'accounts.google.com') {
-//         res.writeHead(200, '', {
-//             "Content-Type": "text/html",
-//             "x-manage-chrome-accounts": "incognito=1"
-//         });
-//         res.end('Intercepting google accounts.');
-//         return;
-//     };
-    
-//     if (req.headers.host === 'play.google.com') {
-//         res.writeHead(200, '', {
-//             "Content-Type": "text/html",
-//         });
-//         res.end("This exploit was written by CRZero and Chromium Labs.\nPrimary Developer: MCRideable#3693.\n Combination of k1llswitch and certain chromium vulnerabilities. We will be shortly pwning your browser and placing a shell in the current page. Link to incognito? <a href='//accounts.google.com/SignOutOptions' >link1</a>");
-//         return;
-//     };
-//     let url = req.url;
-//     console.log(req.url);
-//     let resp;
-//     try {
-//     resp = await axios.request({
-//         url: url,
-//         headers: req.headers,
-//         responseType: "arraybuffer"
-//     });
-// }catch {
-//     res.writeHead(404);
-//     res.end("Failed");
-//     return; 
-// }
-    
-//     res.writeHead(resp.status, resp.statusText, resp.headers);
-//     if (resp.data) {
-//         res.end(resp.data);
-//     }
-
-// }).listen(3000);
-//Credits to https://medium.com/@nimit95/a-simple-http-https-proxy-in-node-js-4eb0444f38fc or @nimit95
 const net = require('net');
 const server = net.createServer();
 // miniServerMap[host] = new MiniServer();
